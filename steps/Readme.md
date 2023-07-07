@@ -4,3 +4,4 @@
 Logical steps along the path of developing the code that increase in complexity.
 
 * Step 01 - Initial program representation
+* Step 02 - Initial derivative of routine
