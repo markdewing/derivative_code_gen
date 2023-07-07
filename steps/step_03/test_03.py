@@ -4,7 +4,7 @@ from utils import compare_stmts, routine_from_text, stmts_from_text, compare_rou
 
 
 # Manually constructed test case
-def test_routine_01():
+def test_step_03_routine_01():
     R = Routine("test1")
     x = Symbol("x")
     e1 = Symbol("e1")
@@ -27,7 +27,7 @@ def test_routine_01():
 
 
 # Test case using string inputs
-def test_routine_02():
+def test_step_03_routine_02():
     text1 = """
       e0 = 2*x**2 + 3*x
     """
