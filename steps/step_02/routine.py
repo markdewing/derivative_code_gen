@@ -75,7 +75,7 @@ class Routine:
                     )
 
                 # Compute derivative of the statement wrt the variable
-                de = diff(s.rhs, var)
+                de = diff(s.rhs, var, order)
 
                 # Derivatives wrt other statements (chain rule)
                 for idx2, s2 in enumerate(self.stmts):
