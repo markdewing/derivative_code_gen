@@ -61,11 +61,11 @@ def compare_routines(r1, r2):
     assert r1.name == r2.name
 
     assert len(r1.inputs) == len(r2.inputs)
-    for i1, i2 in zip(r1.inputs, r2.inputs):
+    for i1, i2 in zip(sorted(r1.inputs, key=str), sorted(r2.inputs, key=str)):
         assert i1 == i2
 
     assert len(r1.outputs) == len(r2.outputs)
-    for o1, o2 in zip(r1.outputs, r2.outputs):
-        assert o1 == o2
+    for o1, o2 in zip(sorted(r1.outputs, key=str), sorted(r2.outputs, key=str)):
+        assert o1 == o2, str(o1) + " != " + str(o2)
 
     compare_stmts(r1.stmts, r2.stmts)
