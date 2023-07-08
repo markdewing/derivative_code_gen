@@ -71,6 +71,8 @@ class Routine:
                         str(s.lhs),
                         "=",
                         str(s.rhs),
+                        " wrt ",
+                        var,
                         " free symbols: ",
                         s.rhs.free_symbols,
                     )
