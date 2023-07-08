@@ -66,6 +66,6 @@ def compare_routines(r1, r2):
 
     assert len(r1.outputs) == len(r2.outputs)
     for o1, o2 in zip(sorted(r1.outputs, key=str), sorted(r2.outputs, key=str)):
-        assert o1 == o2, str(o1) + " != " + str(o2)
+        assert o1 == o2, "Output: " + str(o1) + " != " + str(o2)
 
     compare_stmts(r1.stmts, r2.stmts)
