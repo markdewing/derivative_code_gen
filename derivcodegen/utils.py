@@ -1,5 +1,6 @@
 from sympy import sympify
 from routine import Routine, Statement
+from collections import OrderedDict
 
 
 def stmts_from_text(text):
@@ -25,20 +26,35 @@ def stmts_from_text(text):
 # Look for free symbols that are not assigned in any statements
 def find_inputs(stmts):
     free_syms = set()
+    ordered_syms = OrderedDict()
     for s in reversed(stmts):
         free_syms.update(s.rhs.free_symbols)
+        for s1 in s.rhs.free_symbols:
+            ordered_syms[s1] = None
         free_syms.discard(s.lhs)
-    return free_syms
+
+    used_syms_ordered = list()
+    for s in ordered_syms.keys():
+        if s in free_syms:
+            used_syms_ordered.append(s)
+    return used_syms_ordered
 
 
 # Look for assigned symbols that are not used in any other statements
 def find_outputs(stmts):
     unused_syms = set()
+    ordered_syms = OrderedDict()
     for s in stmts:
         unused_syms.add(s.lhs)
+        ordered_syms[s.lhs] = None
         unused_syms.difference_update(s.rhs.free_symbols)
 
-    return unused_syms
+    unused_syms_ordered = list()
+    for s in ordered_syms.keys():
+        if s in unused_syms:
+            unused_syms_ordered.append(s)
+
+    return unused_syms_ordered
 
 
 def routine_from_text(name, text):
