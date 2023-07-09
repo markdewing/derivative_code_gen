@@ -3,7 +3,7 @@
 
 
 We will use a collection of statements, where each statement is an assignment.  The left-hand side is a Sympy variable and the right-hand side is a Sympy expression.
-The program representation is a Routine, which consists of a name, a list of statements, a list of input variables, and a list of output variables.
+The program representation is held in the class Routine, which consists of a name, a list of statements, a list of input variables, and a list of output variables.
 
 The example routine looks like this printed out:
 ```
