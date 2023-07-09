@@ -11,7 +11,8 @@ For the `test` name with respect to `x` and `y` the derivative name is `test_d1x
 
 
 The input to the `diff` function is a list of variables and orders.
-There are some immediate shortcuts we can implement to make usage a little nicer.  Allow single variables to be give, and allow variables without an associated order are assumed to be first derivatives.
+There are some immediate shortcuts we can implement to make usage a little nicer.
+A single variable is converted to a list of size one, and variables without an associated order are assumed to be first derivatives.
 
 
 These calls should all be equivalent:
@@ -32,7 +33,7 @@ Routine: test1
  Outputs:  [e1]
 ```
 
-The derivative routine:
+The derivative routine after calling `R.diff(x)`
 ```
 Routine: test1_d1x
  Inputs:  [x]
