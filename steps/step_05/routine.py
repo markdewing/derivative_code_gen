@@ -85,14 +85,41 @@ class Routine:
                     print(" new function call: ", str(stmt))
                 dR.stmts.append(stmt)
 
-                tmp_name_var_wrt_var = (
-                    "tmp_" + str(s.lhs) + "_d" + str(order) + str(var)
-                )
-                name_var_wrt_var = str(s.lhs) + "_d" + str(order) + str(var)
+                # Now apply the chain rule to the arguments
+                for (var, order) in var_list:
+                    tmp_name_var_wrt_var = (
+                        "tmp_" + str(s.lhs) + "_d" + str(order) + str(var)
+                    )
+                    name_var_wrt_var = str(s.lhs) + "_d" + str(order) + str(var)
 
-                dR.stmts.append(
-                    Statement(Symbol(name_var_wrt_var), Symbol(tmp_name_var_wrt_var))
-                )
+                    expr = 0
+                    # Loop over function arguments
+                    for arg in s.rhs.args:
+                        darg = diff(arg, var, order)
+                        if self.debug:
+                            print(
+                                "  Differentiating ",
+                                arg,
+                                " by ",
+                                var,
+                                order,
+                                " is ",
+                                darg,
+                            )
+                        expr += darg * Symbol(tmp_name_var_wrt_var)
+                        for idx2, s2 in enumerate(self.stmts):
+                            if s2.lhs in arg.free_symbols:
+                                name_var_wrt_var2 = (
+                                    str(s2.lhs) + "_d" + str(order) + str(var)
+                                )
+                                de2 = diff(arg, s2.lhs, order)
+                                expr += (
+                                    de2
+                                    * Symbol(name_var_wrt_var2)
+                                    * Symbol(tmp_name_var_wrt_var)
+                                )
+
+                    dR.stmts.append(Statement(Symbol(name_var_wrt_var), expr))
 
                 # No further processing of this statement
                 continue

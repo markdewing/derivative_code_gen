@@ -97,13 +97,15 @@ def compare_stmts(stmts1, stmts2):
 
 
 def compare_routines(r1, r2):
-    assert r1.name == r2.name
+    assert r1.name == r2.name, r1.name + " != " + r2.name
 
     assert len(r1.inputs) == len(r2.inputs), str(r1.inputs) + " != " + str(r2.inputs)
     for i1, i2 in zip(sorted(r1.inputs, key=str), sorted(r2.inputs, key=str)):
         assert i1 == i2, "Input: " + str(i1) + " != " + str(i2)
 
-    assert len(r1.outputs) == len(r2.outputs)
+    assert len(r1.outputs) == len(r2.outputs), (
+        str(r1.outputs) + " != " + str(r2.outputs)
+    )
     for o1, o2 in zip(sorted(r1.outputs, key=str), sorted(r2.outputs, key=str)):
         assert o1 == o2, "Output: " + str(o1) + " != " + str(o2)
 
