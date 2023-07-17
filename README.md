@@ -1,10 +1,12 @@
 # Symbolic Derivatives with Code Generation
 
-This project expresses scientific computation in a form that is more like symbolic mathematics.  It performs derivatives on that representation, and then converts to a regular programming language.  It's similar to auto-differentiation, but the diffentiation is done on a different representation.
+This project expresses scientific computation in a form more like symbolic mathematics.  It performs derivatives on that representation, and then converts to a regular programming language.  It's similar to auto-differentiation, but the differentiation is performed on a different representation.  It can also be thought of as mixed auto and symbolic differentiation.
 
 The representation is a structured collection of statements with the symbolic part using Sympy.
 
-The [steps](steps) directory contains the development progression.   The most complete versions of the code and tests are in the [derivcodegen](derivcodegen) and [tests](tests) directories.
+The [steps](steps) directory contains the development progression.
+
+The most complete versions of the code and tests are in the [derivcodegen](derivcodegen) and [tests](tests) directories.
 
 
 ### Example
