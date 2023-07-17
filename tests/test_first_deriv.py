@@ -187,6 +187,7 @@ def test_first_derivative_04(debug=False):
 
     R.debug = debug
     dR_x = R.diff(x)
+    dR_x.debug = debug
     dR_y = dR_x.diff(y)
 
     if debug:
