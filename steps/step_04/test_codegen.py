@@ -29,15 +29,13 @@ def compare_src(s1, s2):
 
 def test_julia_codegen(debug=False):
     text1 = """
-        e0 = 2*x
-        e1 = exp(-x)
+        e0 = 2*x**2 + 3*x
     """
 
     ref_text1 = """
 function test1(x)
-    e0 = 2 * x
-    e1 = exp(-x)
-    return (e0, e1)
+    e0 = 2 * x .^ 2 + 3 * x
+    return e0
 end
     """
 
@@ -53,6 +51,12 @@ end
     if debug:
         print(s)
     compare_src(ref_text1, s)
+
+    x = Symbol('x')
+    dR = R.diff(x)
+    dfunc = convert_routine_to_function(dR)
+    ds = printer.doprint(dfunc)
+    print(ds)
 
 
 def test_python_codegen(debug=False):
@@ -113,5 +117,5 @@ double test1(double x, double& e1){
 
 if __name__ == "__main__":
     test_julia_codegen(debug=True)
-    test_python_codegen(debug=True)
-    test_cpp_codegen(debug=True)
+    #test_python_codegen(debug=True)
+    #test_cpp_codegen(debug=True)
