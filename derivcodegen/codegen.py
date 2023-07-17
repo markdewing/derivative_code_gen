@@ -20,7 +20,11 @@ class Reference(Pointer):
 
 
 def convert_stmt_to_assign(stmt):
-    return Assignment(Symbol(str(stmt.lhs)), stmt.rhs)
+    if len(stmt.lhs) == 1:
+        a = Assignment(Symbol(str(stmt.lhs[0])), stmt.rhs)
+    else:
+        a =  Assignment(Symbol(str(stmt.lhs)), stmt.rhs)
+    return a
 
 
 # Convert Routine to Sympy codegen AST
@@ -32,8 +36,9 @@ def convert_routine_to_function(R, is_cpp=False):
     #   in the parameter list
     if is_cpp:
         for stmt in R.stmts:
-            if stmt.lhs not in R.outputs[1:]:
-                body.append(Variable(str(stmt.lhs), type="double").as_Declaration())
+            for lhs_var in stmt.lhs:
+                if lhs_var not in R.outputs[1:]:
+                    body.append(Variable(str(lhs_var), type="double").as_Declaration())
 
     # Main loop to convert statements
     for stmt in R.stmts:
