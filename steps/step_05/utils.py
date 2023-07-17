@@ -35,11 +35,8 @@ def find_inputs(stmts):
         free_syms.update(s.rhs.free_symbols)
         for s1 in s.rhs.free_symbols:
             ordered_syms[s1] = None
-        if isinstance(s.lhs, tuple):
-            for sl in s.lhs:
-                free_syms.discard(sl)
-        else:
-            free_syms.discard(s.lhs)
+        for sl in s.lhs:
+            free_syms.discard(sl)
 
     used_syms_ordered = list()
     for s in ordered_syms.keys():
@@ -53,13 +50,9 @@ def find_outputs(stmts):
     unused_syms = set()
     ordered_syms = OrderedDict()
     for s in stmts:
-        if isinstance(s.lhs, tuple):
-            for sl in s.lhs:
-                unused_syms.add(sl)
-                ordered_syms[sl] = None
-        else:
-            unused_syms.add(s.lhs)
-            ordered_syms[s.lhs] = None
+        for sl in s.lhs:
+            unused_syms.add(sl)
+            ordered_syms[sl] = None
         unused_syms.difference_update(s.rhs.free_symbols)
 
     unused_syms_ordered = list()

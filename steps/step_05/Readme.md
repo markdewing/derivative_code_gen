@@ -18,3 +18,10 @@ Option 3 seems the best.  For now we require (assume) that the inputs have this 
 A separate pass to put routines in this form does not seem difficult, but we will leave it for later.
 
 
+One complication is that functions that compute derivatives return multiple values,
+and subsequently the left-hand side of the statement can have multiple variables.
+(So far, assigning to a function is the only place this occurs.)
+This primary problem comes when applying `diff` multiple times.
+To handle this, the Statement type is changed to always use a list on the left side, and the code is adjusted to match.
+
+

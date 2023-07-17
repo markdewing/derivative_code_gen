@@ -5,7 +5,10 @@ from sympy.core.function import UndefinedFunction
 #  Each has a left-hand side and a right-hand side
 class Statement:
     def __init__(self, lhs, rhs):
-        self.lhs = lhs
+        if type(lhs) in [list, tuple]:
+            self.lhs = list(lhs)
+        else:
+            self.lhs = [lhs]
         self.rhs = rhs
 
     def __eq__(self, other):
@@ -72,12 +75,14 @@ class Routine:
                     "_d" + str(var[1]) + str(var[0]) for var in var_list
                 )
 
-                assign_list = [s.lhs]
+                assign_list = s.lhs[:]
+
                 for (var, order) in var_list:
-                    name_var_wrt_var = (
-                        "tmp_" + str(s.lhs) + "_d" + str(order) + str(var)
-                    )
-                    assign_list.append(Symbol(name_var_wrt_var))
+                    for lhs_var in s.lhs:
+                        name_var_wrt_var = (
+                            "tmp_" + str(lhs_var) + "_d" + str(order) + str(var)
+                        )
+                        assign_list.append(Symbol(name_var_wrt_var))
 
                 func_call = Function(func_name_deriv)(*s.rhs.args)
                 stmt = Statement(tuple(assign_list), func_call)
@@ -87,39 +92,41 @@ class Routine:
 
                 # Now apply the chain rule to the arguments
                 for (var, order) in var_list:
-                    tmp_name_var_wrt_var = (
-                        "tmp_" + str(s.lhs) + "_d" + str(order) + str(var)
-                    )
-                    name_var_wrt_var = str(s.lhs) + "_d" + str(order) + str(var)
+                    for lhs_var in s.lhs:
+                        tmp_name_var_wrt_var = (
+                            "tmp_" + str(lhs_var) + "_d" + str(order) + str(var)
+                        )
+                        name_var_wrt_var = str(lhs_var) + "_d" + str(order) + str(var)
 
-                    expr = 0
-                    # Loop over function arguments
-                    for arg in s.rhs.args:
-                        darg = diff(arg, var, order)
-                        if self.debug:
-                            print(
-                                "  Differentiating ",
-                                arg,
-                                " by ",
-                                var,
-                                order,
-                                " is ",
-                                darg,
-                            )
-                        expr += darg * Symbol(tmp_name_var_wrt_var)
-                        for idx2, s2 in enumerate(self.stmts):
-                            if s2.lhs in arg.free_symbols:
-                                name_var_wrt_var2 = (
-                                    str(s2.lhs) + "_d" + str(order) + str(var)
+                        expr = 0
+                        # Loop over function arguments
+                        for arg in s.rhs.args:
+                            darg = diff(arg, var, order)
+                            if self.debug:
+                                print(
+                                    "  Differentiating ",
+                                    arg,
+                                    " by ",
+                                    var,
+                                    order,
+                                    " is ",
+                                    darg,
                                 )
-                                de2 = diff(arg, s2.lhs, order)
-                                expr += (
-                                    de2
-                                    * Symbol(name_var_wrt_var2)
-                                    * Symbol(tmp_name_var_wrt_var)
-                                )
+                            expr += darg * Symbol(tmp_name_var_wrt_var)
+                            for idx2, s2 in enumerate(self.stmts):
+                                for lhs_var2 in s2.lhs:
+                                    if lhs_var2 in arg.free_symbols:
+                                        name_var_wrt_var2 = (
+                                            str(lhs_var2) + "_d" + str(order) + str(var)
+                                        )
+                                        de2 = diff(arg, lhs_var2, order)
+                                        expr += (
+                                            de2
+                                            * Symbol(name_var_wrt_var2)
+                                            * Symbol(tmp_name_var_wrt_var)
+                                        )
 
-                    dR.stmts.append(Statement(Symbol(name_var_wrt_var), expr))
+                        dR.stmts.append(Statement(Symbol(name_var_wrt_var), expr))
 
                 # No further processing of this statement
                 continue
@@ -146,14 +153,19 @@ class Routine:
 
                 # Derivatives wrt other statements (chain rule)
                 for idx2, s2 in enumerate(self.stmts):
-                    if s2.lhs in s.rhs.free_symbols:
-                        # Example: y -> y_d1x
-                        name_var_wrt_var = str(s2.lhs) + "_d" + str(order) + str(var)
-                        de2 = diff(s.rhs, s2.lhs, order) * Symbol(name_var_wrt_var)
-                        de += de2
+                    for lhs_var2 in s2.lhs:
+                        if lhs_var2 in s.rhs.free_symbols:
+                            # Example: y -> y_d1x
+                            name_var_wrt_var = (
+                                str(lhs_var2) + "_d" + str(order) + str(var)
+                            )
+                            de2 = diff(s.rhs, lhs_var2, order) * Symbol(
+                                name_var_wrt_var
+                            )
+                            de += de2
 
                 de = simplify(de)
-                lhs_deriv_name = str(s.lhs) + "_d" + str(order) + str(var)
+                lhs_deriv_name = str(s.lhs[0]) + "_d" + str(order) + str(var)
 
                 dstmt = Statement(Symbol(lhs_deriv_name), de)
                 if self.debug:
@@ -175,5 +187,9 @@ class Routine:
         print(" Inputs: ", self.inputs)
         print(" Statements:")
         for s in self.stmts:
-            print("  ", s.lhs, " = ", s.rhs)
+            # For the common case where there is only one item on the LHS, skip printing the enclosing brackets
+            if len(s.lhs) == 1:
+                print("  ", s.lhs[0], " = ", s.rhs)
+            else:
+                print("  ", s.lhs, " = ", s.rhs)
         print(" Outputs: ", self.outputs)
