@@ -50,7 +50,6 @@ def convert_routine_to_function(R, is_cpp=False):
 
     # Look for arrays that need to be defined
     # For memory efficiency, we may eventually want to pass these as parameters
-    print("look for arrays")
     array_decls = dict()
     for stmt in R.stmts:
         for lhs_var in stmt.lhs:

@@ -50,7 +50,6 @@ class Routine:
             else:
                 new_var_list.append((v, 1))
         var_list = new_var_list
-        print("new var list", var_list)
 
         # Name of derivative function
         # Note that var[1] is the name of the variable and var[0] is the order
