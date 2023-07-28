@@ -1,9 +1,9 @@
-from sympy import sympify
+from sympy import sympify, Indexed
 from routine import Routine, Statement
 from collections import OrderedDict
 
 
-def stmts_from_text(text):
+def stmts_from_text(text, local_vars=None):
     # print('parsing from ',text)
     stmts = []
     for line in text.split("\n"):
@@ -16,10 +16,10 @@ def stmts_from_text(text):
         if len(vals) == 2:
             lhs_vals = vals[0].strip().split(",")
             if len(lhs_vals) == 1:
-                lhs = sympify(lhs_vals[0])
+                lhs = sympify(lhs_vals[0], locals=local_vars)
             else:
-                lhs = tuple([sympify(lv) for lv in lhs_vals])
-            rhs = sympify(vals[1])
+                lhs = tuple([sympify(lv, locals=local_vars) for lv in lhs_vals])
+            rhs = sympify(vals[1], locals=local_vars)
             stmts.append(Statement(lhs, rhs))
         else:
             print("unexpected length = ", len(vals), vals)
@@ -34,7 +34,8 @@ def find_inputs(stmts):
     for s in reversed(stmts):
         free_syms.update(s.rhs.free_symbols)
         for s1 in s.rhs.free_symbols:
-            ordered_syms[s1] = None
+            if not isinstance(s1, Indexed):
+                ordered_syms[s1] = None
         for sl in s.lhs:
             free_syms.discard(sl)
 
@@ -63,9 +64,9 @@ def find_outputs(stmts):
     return unused_syms_ordered
 
 
-def routine_from_text(name, text):
+def routine_from_text(name, text, local_vars=None):
     R = Routine(name)
-    R.stmts = stmts_from_text(text)
+    R.stmts = stmts_from_text(text, local_vars=local_vars)
     inps = find_inputs(R.stmts)
     R.inputs = list(inps)
     outs = find_outputs(R.stmts)
