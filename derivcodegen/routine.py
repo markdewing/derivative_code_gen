@@ -1,4 +1,4 @@
-from sympy import diff, simplify, Symbol, Function
+from sympy import diff, simplify, Symbol, Function, IndexedBase, Indexed
 from sympy.core.function import UndefinedFunction
 
 # Use a class for statements
@@ -57,6 +57,20 @@ class Routine:
         var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
         dR = Routine(self.name + "_" + var_name_deriv)
 
+        # Check for vectors
+        expanded_var_list = []
+        for (var, order) in var_list:
+            var_is_vector = isinstance(var, IndexedBase)
+            if var_is_vector:
+                # Assume vector is of length 3
+                for i in range(3):
+                    expanded_var_list.append((var[i], order))
+            else:
+                expanded_var_list.append((var, order))
+
+        if self.debug:
+            print("Expanded var list = ", expanded_var_list)
+
         # As a starting point, the inputs and outputs are the same as the original function.
         # Assume the new function returns the function value and derivatives.
         dR.inputs = self.inputs[:]
@@ -91,7 +105,7 @@ class Routine:
                 dR.stmts.append(stmt)
 
                 # Now apply the chain rule to the arguments
-                for (var, order) in var_list:
+                for (var, order) in expanded_var_list:
                     for lhs_var in s.lhs:
                         tmp_name_var_wrt_var = (
                             "tmp_" + str(lhs_var) + "_d" + str(order) + str(var)
@@ -134,7 +148,7 @@ class Routine:
             # Need the original statement
             dR.stmts.append(s)
 
-            for (var, order) in var_list:
+            for (var, order) in expanded_var_list:
                 if self.debug:
                     print(
                         idx,
@@ -165,9 +179,14 @@ class Routine:
                             de += de2
 
                 de = simplify(de)
-                lhs_deriv_name = str(s.lhs[0]) + "_d" + str(order) + str(var)
+                if isinstance(var, Indexed):
+                    lhs_deriv_name = str(s.lhs[0]) + "_d" + str(order) + str(var.base)
+                    new_lhs = IndexedBase(lhs_deriv_name)[var.indices]
+                else:
+                    lhs_deriv_name = str(s.lhs[0]) + "_d" + str(order) + str(var)
+                    new_lhs = Symbol(lhs_deriv_name)
 
-                dstmt = Statement(Symbol(lhs_deriv_name), de)
+                dstmt = Statement(new_lhs, de)
                 if self.debug:
                     print(idx, "    derivative: ", dstmt)
                 dR.stmts.append(dstmt)
