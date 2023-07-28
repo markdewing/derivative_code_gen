@@ -6,9 +6,9 @@ def test_mag(debug=False):
     text = """
         mag = sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2])
     """
-    # r = IndexedBase('r',3)
-    r = Symbol("R")
-    mag = routine_from_text("mag", text)
+    r = IndexedBase('r',3)
+    ns = {"r" : r}
+    mag = routine_from_text("mag", text, local_vars=ns)
     mag.debug = debug
     dmag = mag.diff(r)
     if debug:
