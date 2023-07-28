@@ -1,4 +1,4 @@
-from sympy import Symbol
+from sympy import Symbol, Indexed
 from sympy.codegen.ast import (
     Assignment,
     Return,
@@ -7,8 +7,10 @@ from sympy.codegen.ast import (
     Variable,
     Pointer,
     Declaration,
+    Token,
 )
 from sympy.printing.julia import JuliaCodePrinter
+from sympy.printing.pycode import PythonCodePrinter
 from sympy.printing.cxx import CXX11CodePrinter
 from routine import Routine, Statement
 
@@ -19,11 +21,17 @@ class Reference(Pointer):
     pass
 
 
+# Node for array declaration
+class ArrayDeclaration(Token):
+    __slots__ = ["name", "size"]
+    _fields = __slots__
+
+
 def convert_stmt_to_assign(stmt):
     if len(stmt.lhs) == 1:
         a = Assignment(Symbol(str(stmt.lhs[0])), stmt.rhs)
     else:
-        a =  Assignment(Symbol(str(stmt.lhs)), stmt.rhs)
+        a = Assignment(Symbol(str(stmt.lhs)), stmt.rhs)
     return a
 
 
@@ -39,6 +47,18 @@ def convert_routine_to_function(R, is_cpp=False):
             for lhs_var in stmt.lhs:
                 if lhs_var not in R.outputs[1:]:
                     body.append(Variable(str(lhs_var), type="double").as_Declaration())
+
+    # Look for arrays that need to be defined
+    # For memory efficiency, we may eventually want to pass these as parameters
+    print("look for arrays")
+    array_decls = dict()
+    for stmt in R.stmts:
+        for lhs_var in stmt.lhs:
+            if isinstance(lhs_var, Indexed) and lhs_var.base not in R.inputs:
+                array_decls[lhs_var.base] = 3
+
+    for decl, size in array_decls.items():
+        body.append(ArrayDeclaration(decl, size))
 
     # Main loop to convert statements
     for stmt in R.stmts:
@@ -77,6 +97,7 @@ class AltJuliaCodePrinter(JuliaCodePrinter):
     def __init__(self, settings=None):
         if not settings:
             settings = dict()
+        settings["contract"] = False
         super(AltJuliaCodePrinter, self).__init__(settings=settings)
 
     def _print_FunctionDefinition(self, expr):
@@ -93,9 +114,20 @@ class AltJuliaCodePrinter(JuliaCodePrinter):
         except TypeError:
             return "return {}".format(self._print(expr.args[0]))
 
+    # Add 1 to the index to adjust for 1-based array
+    def _print_Indexed(self, expr):
+        inds = [self._print(i + 1) for i in expr.indices]
+        return "%s[%s]" % (self._print(expr.base.label), ",".join(inds))
+
+    def _print_ArrayDeclaration(self, expr):
+        return "%s = zeros(%d)" % (expr.name, expr.size)
+
 
 class AltCXX11CodePrinter(CXX11CodePrinter):
     def __init__(self, settings=None):
+        if not settings:
+            settings = dict()
+        settings["contract"] = False
         super(AltCXX11CodePrinter, self).__init__(settings=settings)
 
     def _print_Declaration(self, decl):
@@ -108,3 +140,24 @@ class AltCXX11CodePrinter(CXX11CodePrinter):
             return result
         else:
             return super(AltCXX11CodePrinter, self)._print_Declaration(decl)
+
+    def _print_ArrayDeclaration(self, expr):
+        return "double %s[%d]" % (expr.name, expr.size)
+
+    def _print_Pow(self, expr):
+        if expr.exp == 2:
+            s = self._print(expr.base)
+            return s + "*" + s
+        else:
+            return super(AltCXX11CodePrinter, self)._print_Pow(expr)
+
+
+class AltPythonCodePrinter(PythonCodePrinter):
+    def __init__(self, settings=None):
+        if not settings:
+            settings = dict()
+        settings["contract"] = False
+        super(AltPythonCodePrinter, self).__init__(settings=settings)
+
+    def _print_ArrayDeclaration(self, expr):
+        return "%s = np.zeros(%d)" % (expr.name, expr.size)
