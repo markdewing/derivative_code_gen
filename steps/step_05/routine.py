@@ -34,6 +34,50 @@ class Routine:
 
         self.debug = False
 
+    # Does the expr depend on var at statement idx
+    def build_dependencies(self, stmts):
+        # depends = [set()]*len(stmts)
+        depends = list()
+        func_dep_map = dict()
+        for i in range(len(stmts)):
+            depends.append(set())
+
+        for idx, stmt in enumerate(stmts):
+            # print('for stmt idx',idx,'free syms',stmt.rhs.free_symbols)
+            if type(type(stmt.rhs)) is UndefinedFunction:
+                func_args = stmt.rhs.args
+                for arg_idx, arg in enumerate(func_args):
+                    # print('func arg',arg_idx,arg,arg.free_symbols)
+                    func_dep_map[(idx, arg_idx)] = set(arg.free_symbols)
+                    for idx2, stmt2 in enumerate(stmts[:idx]):
+                        for lhs2 in stmt2.lhs:
+                            # print('   checking lhs2',lhs2,' free syms',arg.free_symbols)
+                            if lhs2 in arg.free_symbols:
+                                # print('   adding ',idx,depends[idx2], ' to ',func_dep_map[(idx,arg_idx)])
+                                func_dep_map[(idx, arg_idx)].update(depends[idx2])
+
+            depends[idx].update(stmt.rhs.free_symbols)
+            for idx2, stmt2 in enumerate(stmts[:idx]):
+                # print('  previous index ',idx2)
+                for lhs2 in stmt2.lhs:
+                    # print('   checking lhs2',lhs2,' free syms',stmt.rhs.free_symbols)
+                    if lhs2 in stmt.rhs.free_symbols:
+                        # print('   adding ',idx,depends[idx2], ' to ',depends[idx])
+                        depends[idx].update(depends[idx2])
+
+        return depends, func_dep_map
+
+    def print_dependencies(self, stmts, depends, func_dep_map):
+        print("Dependency list")
+        for idx in range(len(depends)):
+            print("stmt ", idx, stmts[idx], " depends on ", depends[idx])
+        print("")
+        print("Function Dependency list")
+        for k, v in func_dep_map.items():
+            name = str(stmts[k[0]].rhs)
+            print("  ", name, "(stmt idx, arg idx)", k, " depends on", v)
+        print("")
+
     # Compute derivative of function with respect to variables in var_list
     def diff(self, var_list):
 
@@ -53,10 +97,11 @@ class Routine:
         print("new var list", var_list)
 
         # Name of derivative function
-        # Note that var[1] is the name of the variable and var[0] is the order
+        # Note that var[0] is the name of the variable and var[1] is the order
         var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
         dR = Routine(self.name + "_" + var_name_deriv)
 
+        self.depends, self.func_dep_map = self.build_dependencies(self.stmts)
         # As a starting point, the inputs and outputs are the same as the original function.
         # Assume the new function returns the function value and derivatives.
         dR.inputs = self.inputs[:]
@@ -71,18 +116,35 @@ class Routine:
                 if self.debug:
                     print("Processing function line", str(s))
 
+                func_args = s.rhs.args
+                args_with_deriv = list()
+                # Find which args have dependencies on which variables
+                for arg_idx, arg in enumerate(func_args):
+                    for var in var_list:
+                        # print(f'Checking if {var} is in {self.func_dep_map[(idx,arg_idx)]}')
+                        if var[0] in self.func_dep_map[(idx, arg_idx)]:
+                            args_with_deriv.append((arg_idx, var))
+
                 func_name_deriv = str(type(s.rhs)) + "".join(
-                    "_d" + str(var[1]) + str(var[0]) for var in var_list
+                    "_d" + str(var_order) + "arg" + str(idx)
+                    for idx, (var_name, var_order) in args_with_deriv
                 )
 
                 assign_list = s.lhs[:]
 
-                for (var, order) in var_list:
+                tmp_arg_name_list = list()
+                for arg_idx, (var_name, var_order) in args_with_deriv:
                     for lhs_var in s.lhs:
                         name_var_wrt_var = (
-                            "tmp_" + str(lhs_var) + "_d" + str(order) + str(var)
+                            "tmp_"
+                            + str(lhs_var)
+                            + "_d"
+                            + str(var_order)
+                            + "arg"
+                            + str(arg_idx)
                         )
                         assign_list.append(Symbol(name_var_wrt_var))
+                        tmp_arg_name_list.append(name_var_wrt_var)
 
                 func_call = Function(func_name_deriv)(*s.rhs.args)
                 stmt = Statement(tuple(assign_list), func_call)
@@ -91,11 +153,10 @@ class Routine:
                 dR.stmts.append(stmt)
 
                 # Now apply the chain rule to the arguments
-                for (var, order) in var_list:
+                for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
+                    args_with_deriv, tmp_arg_name_list
+                ):
                     for lhs_var in s.lhs:
-                        tmp_name_var_wrt_var = (
-                            "tmp_" + str(lhs_var) + "_d" + str(order) + str(var)
-                        )
                         name_var_wrt_var = str(lhs_var) + "_d" + str(order) + str(var)
 
                         expr = 0

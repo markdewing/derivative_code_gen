@@ -25,3 +25,15 @@ This primary problem comes when applying `diff` multiple times.
 To handle this, the Statement type is changed to always use a list on the left side, and the code is adjusted to match.
 
 
+Naming the function. I had started using the name of the parameter, but that might be
+different between the call site and the definition.
+
+Need to pick a standard:
+ - Use argument index
+ - Use the name from the definition. This requires access to the definition.
+
+
+For now, use the argument index for simplicity.
+
+Also need to compute which derivatives of which arguments are needed.
+This is put in a function to collect the dependencies.
