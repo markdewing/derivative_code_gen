@@ -39,10 +39,15 @@ def normalize_variable_list(var_list):
     return new_var_list
 
 
-def derivative_routine_name(name, var_list):
-    # Note that var[1] is the name of the variable and var[0] is the order
-    var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
-    return name + "_" + var_name_deriv
+# Arguments are labeled by index rather than name
+def derivative_routine_name(name, var_list, inputs):
+    var_name_deriv = name
+    for arg_idx, arg in enumerate(inputs):
+        for var_name, var_order in var_list:
+            if var_name == arg:
+                var_name_deriv += f"_d{var_order}arg{arg_idx}"
+
+    return var_name_deriv
 
 
 def variable_deriv_name(base, var, order):
@@ -116,7 +121,7 @@ class Routine:
         var_list = normalize_variable_list(var_list)
 
         # Name of derivative function
-        deriv_routine_name = derivative_routine_name(self.name, var_list)
+        deriv_routine_name = derivative_routine_name(self.name, var_list, self.inputs)
         dR = Routine(deriv_routine_name)
 
         self.depends, self.func_dep_map = self.build_dependencies(self.stmts)
