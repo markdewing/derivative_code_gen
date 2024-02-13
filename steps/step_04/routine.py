@@ -18,6 +18,33 @@ class Statement:
         return str(self.lhs) + " = " + str(self.rhs)
 
 
+def normalize_variable_list(var_list):
+    # Allow a single symbol or list of symbols
+    if not isinstance(var_list, list):
+        var_list = [var_list]
+
+    # Each variable is a Symbol or tuple of (Symbol, order)
+    # Convert so all variable entries are tuples
+    new_var_list = []
+    for v in var_list:
+        if isinstance(v, tuple):
+            new_var_list.append(v)
+        else:
+            new_var_list.append((v, 1))
+
+    return new_var_list
+
+
+def derivative_routine_name(name, var_list):
+    # Note that var[1] is the name of the variable and var[0] is the order
+    var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
+    return name + "_" + var_name_deriv
+
+
+def variable_deriv_name(base, var, order):
+    return base + "_d" + str(order) + str(var)
+
+
 class Routine:
     def __init__(self, name):
         self.name = name
@@ -33,25 +60,12 @@ class Routine:
     # Compute derivative of function with respect to variables in var_list
     def diff(self, var_list):
 
-        # Allow a single symbol or list of symbols
-        if not isinstance(var_list, list):
-            var_list = [var_list]
-
-        # Each variable is a Symbol or tuple of (Symbol, order)
-        # Convert so all variable entries are tuples
-        new_var_list = []
-        for v in var_list:
-            if isinstance(v, tuple):
-                new_var_list.append(v)
-            else:
-                new_var_list.append((v, 1))
-        var_list = new_var_list
-        print("new var list", var_list)
+        # Normalize var_list input to be a list of tuples of (Symbol, order)
+        var_list = normalize_variable_list(var_list)
 
         # Name of derivative function
-        # Note that var[1] is the name of the variable and var[0] is the order
-        var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
-        dR = Routine(self.name + "_" + var_name_deriv)
+        deriv_routine_name = derivative_routine_name(self.name, var_list)
+        dR = Routine(deriv_routine_name)
 
         # As a starting point, the inputs and outputs are the same as the original function.
         # Assume the new function returns the function value and derivatives.
@@ -84,12 +98,12 @@ class Routine:
                 for idx2, s2 in enumerate(self.stmts):
                     if s2.lhs in s.rhs.free_symbols:
                         # Example: y -> y_d1x
-                        name_var_wrt_var = str(s2.lhs) + "_d" + str(order) + str(var)
+                        name_var_wrt_var = variable_deriv_name(str(s2.lhs), var, order)
                         de2 = diff(s.rhs, s2.lhs, order) * Symbol(name_var_wrt_var)
                         de += de2
 
                 de = simplify(de)
-                lhs_deriv_name = str(s.lhs) + "_d" + str(order) + str(var)
+                lhs_deriv_name = variable_deriv_name(str(s.lhs), var, order)
 
                 dstmt = Statement(Symbol(lhs_deriv_name), de)
                 if self.debug:
@@ -100,7 +114,7 @@ class Routine:
         deriv_outputs = []
         for (var, order) in var_list:
             for outp in self.outputs:
-                out_name = str(outp) + "_d" + str(order) + str(var)
+                out_name = variable_deriv_name(str(outp), var, order)
                 deriv_outputs.append(Symbol(out_name))
         dR.outputs.extend(deriv_outputs)
 
