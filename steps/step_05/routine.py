@@ -22,6 +22,33 @@ class Statement:
         return str(self.lhs) + " = " + str(self.rhs)
 
 
+def normalize_variable_list(var_list):
+    # Allow a single symbol or list of symbols
+    if not isinstance(var_list, list):
+        var_list = [var_list]
+
+    # Each variable is a Symbol or tuple of (Symbol, order)
+    # Convert so all variable entries are tuples
+    new_var_list = []
+    for v in var_list:
+        if isinstance(v, tuple):
+            new_var_list.append(v)
+        else:
+            new_var_list.append((v, 1))
+
+    return new_var_list
+
+
+def derivative_routine_name(name, var_list):
+    # Note that var[1] is the name of the variable and var[0] is the order
+    var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
+    return name + "_" + var_name_deriv
+
+
+def variable_deriv_name(base, var, order):
+    return base + "_d" + str(order) + str(var)
+
+
 class Routine:
     def __init__(self, name):
         self.name = name
@@ -85,21 +112,12 @@ class Routine:
         if not isinstance(var_list, list):
             var_list = [var_list]
 
-        # Each variable is a Symbol or tuple of (Symbol, order)
-        # Convert so all variable entries are tuples
-        new_var_list = []
-        for v in var_list:
-            if isinstance(v, tuple):
-                new_var_list.append(v)
-            else:
-                new_var_list.append((v, 1))
-        var_list = new_var_list
-        print("new var list", var_list)
+        # Normalize var_list input to be a list of tuples of (Symbol, order)
+        var_list = normalize_variable_list(var_list)
 
         # Name of derivative function
-        # Note that var[0] is the name of the variable and var[1] is the order
-        var_name_deriv = "d" + "_d".join(str(var[1]) + str(var[0]) for var in var_list)
-        dR = Routine(self.name + "_" + var_name_deriv)
+        deriv_routine_name = derivative_routine_name(self.name, var_list)
+        dR = Routine(deriv_routine_name)
 
         self.depends, self.func_dep_map = self.build_dependencies(self.stmts)
         # As a starting point, the inputs and outputs are the same as the original function.
@@ -157,7 +175,7 @@ class Routine:
                     args_with_deriv, tmp_arg_name_list
                 ):
                     for lhs_var in s.lhs:
-                        name_var_wrt_var = str(lhs_var) + "_d" + str(order) + str(var)
+                        name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
 
                         expr = 0
                         # Loop over function arguments
@@ -177,8 +195,8 @@ class Routine:
                             for idx2, s2 in enumerate(self.stmts):
                                 for lhs_var2 in s2.lhs:
                                     if lhs_var2 in arg.free_symbols:
-                                        name_var_wrt_var2 = (
-                                            str(lhs_var2) + "_d" + str(order) + str(var)
+                                        name_var_wrt_var2 = variable_deriv_name(
+                                            str(lhs_var2), var, order
                                         )
                                         de2 = diff(arg, lhs_var2, order)
                                         expr += (
@@ -217,16 +235,17 @@ class Routine:
                     for lhs_var2 in s2.lhs:
                         if lhs_var2 in s.rhs.free_symbols:
                             # Example: y -> y_d1x
-                            name_var_wrt_var = (
-                                str(lhs_var2) + "_d" + str(order) + str(var)
+                            name_var_wrt_var = variable_deriv_name(
+                                str(lhs_var2), var, order
                             )
+
                             de2 = diff(s.rhs, lhs_var2, order) * Symbol(
                                 name_var_wrt_var
                             )
                             de += de2
 
                 de = simplify(de)
-                lhs_deriv_name = str(s.lhs[0]) + "_d" + str(order) + str(var)
+                lhs_deriv_name = variable_deriv_name(str(s.lhs[0]), var, order)
 
                 dstmt = Statement(Symbol(lhs_deriv_name), de)
                 if self.debug:
@@ -237,7 +256,7 @@ class Routine:
         deriv_outputs = []
         for (var, order) in var_list:
             for outp in self.outputs:
-                out_name = str(outp) + "_d" + str(order) + str(var)
+                out_name = variable_deriv_name(str(outp), var, order)
                 deriv_outputs.append(Symbol(out_name))
         dR.outputs.extend(deriv_outputs)
 
