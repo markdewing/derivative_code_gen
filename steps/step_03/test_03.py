@@ -1,5 +1,5 @@
 from sympy import symbols, Symbol
-from routine import Routine, Statement
+from routine import Routine, Statement, normalize_variable_list, variable_deriv_name
 from utils import compare_stmts, routine_from_text, stmts_from_text, compare_routines
 
 
@@ -43,3 +43,22 @@ def test_step_03_routine_02():
 
     ref_dR = routine_from_text("test1_d1x", dtext1)
     compare_routines(dR, ref_dR)
+
+
+def test_normalize_var_list():
+    x = Symbol("x")
+    y = Symbol("y")
+    v1 = normalize_variable_list(x)
+    assert v1 == [(x, 1)]
+
+    v2 = normalize_variable_list([x, y])
+    assert v2 == [(x, 1), (y, 1)]
+
+    v3 = normalize_variable_list([x, (x, 2), (y, 1)])
+    assert v3 == [(x, 1), (x, 2), (y, 1)]
+
+
+def test_variable_deriv_name():
+    x = Symbol("x")
+    name = variable_deriv_name("base", x, 1)
+    assert name == "base_d1x"
