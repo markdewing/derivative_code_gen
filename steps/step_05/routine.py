@@ -54,6 +54,10 @@ def variable_deriv_name(base, var, order):
     return base + "_d" + str(order) + str(var)
 
 
+def tmp_variable_name(var_name, arg_idx, order):
+    return f"tmp_{str(var_name)}_d{str(order)}arg{str(arg_idx)}"
+
+
 class Routine:
     def __init__(self, name):
         self.name = name
@@ -167,7 +171,7 @@ class Routine:
                             + str(arg_idx)
                         )
                         assign_list.append(Symbol(name_var_wrt_var))
-                        tmp_arg_name_list.append(name_var_wrt_var)
+                        # tmp_arg_name_list.append(name_var_wrt_var)
 
                 func_call = Function(func_name_deriv)(*s.rhs.args)
                 stmt = Statement(tuple(assign_list), func_call)
@@ -176,27 +180,53 @@ class Routine:
                 dR.stmts.append(stmt)
 
                 # Now apply the chain rule to the arguments
-                for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
-                    args_with_deriv, tmp_arg_name_list
-                ):
+                # for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
+                #    args_with_deriv, tmp_arg_name_list
+                # ):
+                for arg_idx, (var, order) in args_with_deriv:
                     for lhs_var in s.lhs:
                         name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
+                        tmp_name_var_wrt_var = tmp_variable_name(
+                            lhs_var, arg_idx, order
+                        )
 
                         expr = 0
                         # Loop over function arguments
                         for arg in s.rhs.args:
-                            darg = diff(arg, var, order)
-                            if self.debug:
-                                print(
-                                    "  Differentiating ",
-                                    arg,
-                                    " by ",
-                                    var,
-                                    order,
-                                    " is ",
-                                    darg,
+                            if order == 1:
+                                darg = diff(arg, var, 1)
+                                if self.debug:
+                                    print(
+                                        "  Differentiating ",
+                                        arg,
+                                        " by ",
+                                        var,
+                                        order,
+                                        " is ",
+                                        darg,
+                                    )
+                                expr += darg * Symbol(tmp_name_var_wrt_var)
+
+                            if order == 2:
+                                tmp_name_var_wrt_var1 = tmp_variable_name(
+                                    lhs_var, arg_idx, 1
                                 )
-                            expr += darg * Symbol(tmp_name_var_wrt_var)
+                                darg1 = diff(arg, var, 1)
+                                darg2 = diff(arg, var, 2)
+                                if self.debug:
+                                    print(
+                                        "  Differentiating ",
+                                        arg,
+                                        " by ",
+                                        var,
+                                        order,
+                                        " is ",
+                                        darg2,
+                                    )
+                                expr += darg1 ** 2 * Symbol(
+                                    tmp_name_var_wrt_var
+                                ) + darg2 * Symbol(tmp_name_var_wrt_var1)
+
                             for idx2, s2 in enumerate(self.stmts):
                                 for lhs_var2 in s2.lhs:
                                     if lhs_var2 in arg.free_symbols:

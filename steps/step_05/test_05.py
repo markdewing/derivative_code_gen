@@ -186,6 +186,28 @@ def test_step_05_routine_07(debug=False):
     ref_dR = routine_from_text("test1_d1arg0_d2arg0", dtext1)
     compare_routines(ref_dR, dR)
 
+def test_step_05_routine_08(debug=False):
+    text1 = """
+      e0 = g(x**2)
+    """
+
+    dtext1 = """
+        e0,tmp_e0_d1arg0,tmp_e0_d2arg0 = g_d1arg0_d2arg0(x**2)
+        e0_d1x = tmp_e0_d1arg0 * 2 * x
+        e0_d2x = tmp_e0_d2arg0 * 4 * x**2 + tmp_e0_d1arg0 * 2
+    """
+
+    x = Symbol("x")
+    R = routine_from_text("test1", text1)
+    R.debug = debug
+    dR = R.diff([x,(x,2)])
+
+    if debug:
+        dR.print()
+
+    ref_dR = routine_from_text("test1_d1arg0_d2arg0", dtext1)
+    compare_routines(ref_dR, dR)
+
 
 if __name__ == "__main__":
     #test_step_05_dependency_01(debug=True)
@@ -194,4 +216,5 @@ if __name__ == "__main__":
     #test_step_05_routine_04(debug=True)
     # skip_test_step_05_routine_05(debug=True)
     #test_step_05_routine_06(debug=True)
-    test_step_05_routine_07(debug=True)
+    #test_step_05_routine_07(debug=True)
+    test_step_05_routine_08(debug=True)
