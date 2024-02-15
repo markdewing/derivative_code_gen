@@ -36,9 +36,8 @@ def test_step_05_dependency_01(debug=False):
     x = Symbol("x")
     R = routine_from_text("test1", text1)
     R.debug = debug
-    deps,func_deps = R.build_dependencies(R.stmts)
+    deps, func_deps = R.build_dependencies(R.stmts)
     R.print_dependencies(R.stmts, deps, func_deps)
-    
 
 
 def test_step_05_routine_03(debug=False):
@@ -163,6 +162,7 @@ def test_step_05_routine_06(debug=False):
     if debug:
         dR1.print()
 
+
 # First and second derivative
 def test_step_05_routine_07(debug=False):
     text1 = """
@@ -178,13 +178,14 @@ def test_step_05_routine_07(debug=False):
     x = Symbol("x")
     R = routine_from_text("test1", text1)
     R.debug = debug
-    dR = R.diff([x,(x,2)])
+    dR = R.diff([x, (x, 2)])
 
     if debug:
         dR.print()
 
     ref_dR = routine_from_text("test1_d1arg0_d2arg0", dtext1)
     compare_routines(ref_dR, dR)
+
 
 def test_step_05_routine_08(debug=False):
     text1 = """
@@ -200,7 +201,7 @@ def test_step_05_routine_08(debug=False):
     x = Symbol("x")
     R = routine_from_text("test1", text1)
     R.debug = debug
-    dR = R.diff([x,(x,2)])
+    dR = R.diff([x, (x, 2)])
 
     if debug:
         dR.print()
@@ -210,11 +211,11 @@ def test_step_05_routine_08(debug=False):
 
 
 if __name__ == "__main__":
-    #test_step_05_dependency_01(debug=True)
-    #test_step_05_routine_01(debug=True)
-    #test_step_05_routine_03(debug=True)
-    #test_step_05_routine_04(debug=True)
+    # test_step_05_dependency_01(debug=True)
+    # test_step_05_routine_01(debug=True)
+    # test_step_05_routine_03(debug=True)
+    # test_step_05_routine_04(debug=True)
     # skip_test_step_05_routine_05(debug=True)
-    #test_step_05_routine_06(debug=True)
-    #test_step_05_routine_07(debug=True)
+    # test_step_05_routine_06(debug=True)
+    # test_step_05_routine_07(debug=True)
     test_step_05_routine_08(debug=True)
