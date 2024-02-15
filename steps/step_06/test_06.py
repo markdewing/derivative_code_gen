@@ -18,6 +18,7 @@ def test_mag(debug=False):
 
     # r = Symbol('R')
     mag = routine_from_text("mag", text, local_vars=ns)
+    mag.inputs = [r]
     if debug:
         print("Function")
         mag.print()
@@ -25,6 +26,7 @@ def test_mag(debug=False):
     if debug:
         print("Taking derivative")
     mag.debug = debug
+    # dmag = mag.diff([r,(r,2)])
     dmag = mag.diff(r)
     if debug:
         print("Derivative function")
@@ -51,6 +53,8 @@ def test_mag(debug=False):
         print("Python derivative function")
         print(ds)
 
+    func = convert_routine_to_function(mag, is_cpp=True)
+    dfunc = convert_routine_to_function(dmag, is_cpp=True)
     cprinter = AltCXX11CodePrinter()
     s = cprinter.doprint(func)
     ds = cprinter.doprint(dfunc)
