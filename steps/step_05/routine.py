@@ -50,6 +50,15 @@ def derivative_routine_name(name, var_list, inputs):
     return var_name_deriv
 
 
+# For the called function
+def derivative_routine_name2(name, args_with_deriv):
+    func_name_deriv = name + "".join(
+        "_d" + str(var_order) + "arg" + str(idx)
+        for idx, (var_name, var_order) in args_with_deriv
+    )
+    return func_name_deriv
+
+
 def variable_deriv_name(base, var, order):
     return base + "_d" + str(order) + str(var)
 
@@ -126,19 +135,14 @@ class Routine:
                 if var[0] in self.func_dep_map[(idx, arg_idx)]:
                     args_with_deriv.append((arg_idx, var))
 
-        func_name_deriv = str(type(s.rhs)) + "".join(
-            "_d" + str(var_order) + "arg" + str(idx)
-            for idx, (var_name, var_order) in args_with_deriv
-        )
+        func_name_deriv = derivative_routine_name2(str(type(s.rhs)), args_with_deriv)
 
         assign_list = s.lhs[:]
 
         tmp_arg_name_list = list()
         for arg_idx, (var_name, var_order) in args_with_deriv:
             for lhs_var in s.lhs:
-                name_var_wrt_var = (
-                    "tmp_" + str(lhs_var) + "_d" + str(var_order) + "arg" + str(arg_idx)
-                )
+                name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, var_order)
                 assign_list.append(Symbol(name_var_wrt_var))
                 # tmp_arg_name_list.append(name_var_wrt_var)
 
