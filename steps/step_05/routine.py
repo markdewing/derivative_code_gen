@@ -114,6 +114,101 @@ class Routine:
             print("  ", name, "(stmt idx, arg idx)", k, " depends on", v)
         print("")
 
+    # Takes derivative of a function call
+    def diff_function_call(self, idx, s, var_list):
+        dR_stmts = []
+        func_args = s.rhs.args
+        args_with_deriv = list()
+        # Find which args have dependencies on which variables
+        for arg_idx, arg in enumerate(func_args):
+            for var in var_list:
+                # print(f'Checking if {var} is in {self.func_dep_map[(idx,arg_idx)]}')
+                if var[0] in self.func_dep_map[(idx, arg_idx)]:
+                    args_with_deriv.append((arg_idx, var))
+
+        func_name_deriv = str(type(s.rhs)) + "".join(
+            "_d" + str(var_order) + "arg" + str(idx)
+            for idx, (var_name, var_order) in args_with_deriv
+        )
+
+        assign_list = s.lhs[:]
+
+        tmp_arg_name_list = list()
+        for arg_idx, (var_name, var_order) in args_with_deriv:
+            for lhs_var in s.lhs:
+                name_var_wrt_var = (
+                    "tmp_" + str(lhs_var) + "_d" + str(var_order) + "arg" + str(arg_idx)
+                )
+                assign_list.append(Symbol(name_var_wrt_var))
+                # tmp_arg_name_list.append(name_var_wrt_var)
+
+        func_call = Function(func_name_deriv)(*s.rhs.args)
+        stmt = Statement(tuple(assign_list), func_call)
+        if self.debug:
+            print(" new function call: ", str(stmt))
+        dR_stmts.append(stmt)
+
+        # Now apply the chain rule to the arguments
+        # for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
+        #    args_with_deriv, tmp_arg_name_list
+        # ):
+        for arg_idx, (var, order) in args_with_deriv:
+            for lhs_var in s.lhs:
+                name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
+                tmp_name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, order)
+
+                expr = 0
+                # Loop over function arguments
+                for arg in s.rhs.args:
+                    if order == 1:
+                        darg = diff(arg, var, 1)
+                        if self.debug:
+                            print(
+                                "  Differentiating ",
+                                arg,
+                                " by ",
+                                var,
+                                order,
+                                " is ",
+                                darg,
+                            )
+                        expr += darg * Symbol(tmp_name_var_wrt_var)
+
+                    if order == 2:
+                        tmp_name_var_wrt_var1 = tmp_variable_name(lhs_var, arg_idx, 1)
+                        darg1 = diff(arg, var, 1)
+                        darg2 = diff(arg, var, 2)
+                        if self.debug:
+                            print(
+                                "  Differentiating ",
+                                arg,
+                                " by ",
+                                var,
+                                order,
+                                " is ",
+                                darg2,
+                            )
+                        expr += darg1 ** 2 * Symbol(
+                            tmp_name_var_wrt_var
+                        ) + darg2 * Symbol(tmp_name_var_wrt_var1)
+
+                    for idx2, s2 in enumerate(self.stmts):
+                        for lhs_var2 in s2.lhs:
+                            if lhs_var2 in arg.free_symbols:
+                                name_var_wrt_var2 = variable_deriv_name(
+                                    str(lhs_var2), var, order
+                                )
+                                de2 = diff(arg, lhs_var2, order)
+                                expr += (
+                                    de2
+                                    * Symbol(name_var_wrt_var2)
+                                    * Symbol(tmp_name_var_wrt_var)
+                                )
+
+                dR_stmts.append(Statement(Symbol(name_var_wrt_var), expr))
+
+        return dR_stmts
+
     # Compute derivative of function with respect to variables in var_list
     def diff(self, var_list):
 
@@ -143,104 +238,8 @@ class Routine:
                 if self.debug:
                     print("Processing function line", str(s))
 
-                func_args = s.rhs.args
-                args_with_deriv = list()
-                # Find which args have dependencies on which variables
-                for arg_idx, arg in enumerate(func_args):
-                    for var in var_list:
-                        # print(f'Checking if {var} is in {self.func_dep_map[(idx,arg_idx)]}')
-                        if var[0] in self.func_dep_map[(idx, arg_idx)]:
-                            args_with_deriv.append((arg_idx, var))
-
-                func_name_deriv = str(type(s.rhs)) + "".join(
-                    "_d" + str(var_order) + "arg" + str(idx)
-                    for idx, (var_name, var_order) in args_with_deriv
-                )
-
-                assign_list = s.lhs[:]
-
-                tmp_arg_name_list = list()
-                for arg_idx, (var_name, var_order) in args_with_deriv:
-                    for lhs_var in s.lhs:
-                        name_var_wrt_var = (
-                            "tmp_"
-                            + str(lhs_var)
-                            + "_d"
-                            + str(var_order)
-                            + "arg"
-                            + str(arg_idx)
-                        )
-                        assign_list.append(Symbol(name_var_wrt_var))
-                        # tmp_arg_name_list.append(name_var_wrt_var)
-
-                func_call = Function(func_name_deriv)(*s.rhs.args)
-                stmt = Statement(tuple(assign_list), func_call)
-                if self.debug:
-                    print(" new function call: ", str(stmt))
-                dR.stmts.append(stmt)
-
-                # Now apply the chain rule to the arguments
-                # for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
-                #    args_with_deriv, tmp_arg_name_list
-                # ):
-                for arg_idx, (var, order) in args_with_deriv:
-                    for lhs_var in s.lhs:
-                        name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
-                        tmp_name_var_wrt_var = tmp_variable_name(
-                            lhs_var, arg_idx, order
-                        )
-
-                        expr = 0
-                        # Loop over function arguments
-                        for arg in s.rhs.args:
-                            if order == 1:
-                                darg = diff(arg, var, 1)
-                                if self.debug:
-                                    print(
-                                        "  Differentiating ",
-                                        arg,
-                                        " by ",
-                                        var,
-                                        order,
-                                        " is ",
-                                        darg,
-                                    )
-                                expr += darg * Symbol(tmp_name_var_wrt_var)
-
-                            if order == 2:
-                                tmp_name_var_wrt_var1 = tmp_variable_name(
-                                    lhs_var, arg_idx, 1
-                                )
-                                darg1 = diff(arg, var, 1)
-                                darg2 = diff(arg, var, 2)
-                                if self.debug:
-                                    print(
-                                        "  Differentiating ",
-                                        arg,
-                                        " by ",
-                                        var,
-                                        order,
-                                        " is ",
-                                        darg2,
-                                    )
-                                expr += darg1 ** 2 * Symbol(
-                                    tmp_name_var_wrt_var
-                                ) + darg2 * Symbol(tmp_name_var_wrt_var1)
-
-                            for idx2, s2 in enumerate(self.stmts):
-                                for lhs_var2 in s2.lhs:
-                                    if lhs_var2 in arg.free_symbols:
-                                        name_var_wrt_var2 = variable_deriv_name(
-                                            str(lhs_var2), var, order
-                                        )
-                                        de2 = diff(arg, lhs_var2, order)
-                                        expr += (
-                                            de2
-                                            * Symbol(name_var_wrt_var2)
-                                            * Symbol(tmp_name_var_wrt_var)
-                                        )
-
-                        dR.stmts.append(Statement(Symbol(name_var_wrt_var), expr))
+                func_deriv_stmts = self.diff_function_call(idx, s, var_list)
+                dR.stmts.extend(func_deriv_stmts)
 
                 # No further processing of this statement
                 continue
