@@ -1,4 +1,4 @@
-from sympy import Symbol, Indexed
+from sympy import Symbol, Indexed, IndexedBase
 from sympy.codegen.ast import (
     Assignment,
     Return,
@@ -46,15 +46,30 @@ def convert_routine_to_function(R, is_cpp=False):
         for stmt in R.stmts:
             for lhs_var in stmt.lhs:
                 if lhs_var not in R.outputs[1:]:
-                    body.append(Variable(str(lhs_var), type="double").as_Declaration())
+                    if isinstance(lhs_var, Indexed):
+                        pass
+                    elif isinstance(lhs_var, IndexedBase):
+                        pass
+                    else:
+                        body.append(
+                            Variable(str(lhs_var), type="double").as_Declaration()
+                        )
 
     # Look for arrays that need to be defined
     # For memory efficiency, we may eventually want to pass these as parameters
     array_decls = dict()
     for stmt in R.stmts:
         for lhs_var in stmt.lhs:
-            if isinstance(lhs_var, Indexed) and lhs_var.base not in R.inputs:
-                array_decls[lhs_var.base] = 3
+            if is_cpp:
+                if (
+                    isinstance(lhs_var, Indexed)
+                    and lhs_var.base not in R.inputs
+                    and lhs_var.base not in R.outputs[1:]
+                ):
+                    array_decls[lhs_var.base] = 3
+            else:
+                if isinstance(lhs_var, Indexed) and lhs_var.base not in R.inputs:
+                    array_decls[lhs_var.base] = 3
 
     for decl, size in array_decls.items():
         body.append(ArrayDeclaration(decl, size))
@@ -78,13 +93,19 @@ def convert_routine_to_function(R, is_cpp=False):
     # Input parameters
     input_args = list()
     for inp in R.inputs:
-        ivar = Variable(inp, type="double")
+        if is_cpp and isinstance(inp, IndexedBase):
+            ivar = Pointer(inp, type="double")
+        else:
+            ivar = Variable(inp, type="double")
         input_args.append(ivar)
 
     # For C++, pass all but the first return value as a reference
     if is_cpp:
         for out in R.outputs[1:]:
-            ovar = Reference(out, type="double")
+            if isinstance(out, IndexedBase):
+                ovar = Pointer(out, type="double")
+            else:
+                ovar = Reference(out, type="double")
             input_args.append(ovar)
 
     func = FunctionDefinition("double", R.name, input_args, cb)
