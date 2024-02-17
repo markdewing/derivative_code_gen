@@ -155,7 +155,6 @@ class Routine:
         assign_list = s.lhs[:]
 
         tmp_arg_name_list = list()
-        # for arg_idx, (var_name, var_order) in args_with_deriv:
         for arg_idx, var_order in args_and_order:
             for lhs_var in s.lhs:
                 name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, var_order)
@@ -173,7 +172,6 @@ class Routine:
         #    args_with_deriv, tmp_arg_name_list
         # ):
         for arg_idx, (var, order) in args_with_deriv:
-            # for arg_idx, order in args_and_order:
             for lhs_var in s.lhs:
                 name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
                 tmp_name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, order)
