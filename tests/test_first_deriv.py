@@ -31,7 +31,7 @@ def test_first_derivative_01(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0", dtext1)
     compare_routines(dR, ref_dR)
 
 
@@ -66,7 +66,7 @@ def test_first_derivative_02(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0", dtext1)
     compare_routines(dR, ref_dR)
 
 
@@ -102,7 +102,7 @@ def test_first_derivative_03(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0", dtext1)
     compare_routines(dR, ref_dR)
 
 
@@ -143,7 +143,7 @@ def test_first_derivative_03(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x_d1y", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0_d1arg1", dtext1)
 
     if debug:
         print("Reference derivative function")
@@ -195,7 +195,7 @@ def test_first_derivative_04(debug=False):
         dR_y.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x_d1y", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0_d1arg1", dtext1)
 
     if debug:
         print("Reference derivative function")

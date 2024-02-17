@@ -31,7 +31,7 @@ def test_elem_func_01(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0", dtext1)
     compare_routines(dR, ref_dR)
 
 
@@ -45,8 +45,11 @@ def test_elem_func_sqrt(debug=False):
       e0_d1x = x/sqrt(x*x + y*y + z*z)
     """
 
-    x = Symbol("x")
+    # x = Symbol("x")
+    x, y, z = symbols("x y z")
     R = routine_from_text("test1", text1)
+    # override the ordering of inputs from routine_from_text
+    R.inputs = [x, y, z]
 
     if debug:
         print("Original function")
@@ -60,7 +63,8 @@ def test_elem_func_sqrt(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d1x", dtext1)
+    ref_dR = routine_from_text("test1_d1arg0", dtext1)
+    ref_dR.inputs = [x, y, z]
 
     if debug:
         print("Reference derivative function")

@@ -29,7 +29,7 @@ def test_second_deriv_01(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test1_d2x", dtext2)
+    ref_dR = routine_from_text("test1_d2arg0", dtext2)
     compare_routines(ref_dR, dR)
 
 
@@ -60,7 +60,7 @@ def test_second_deriv_02(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test2_d1x_d2x", dtext2)
+    ref_dR = routine_from_text("test2_d1arg0_d2arg0", dtext2)
     compare_routines(ref_dR, dR)
 
 
@@ -90,7 +90,7 @@ def test_second_deriv_03(debug=False):
         dR.print()
         print()
 
-    ref_dR = routine_from_text("test2_d1x_d2x", dtext2)
+    ref_dR = routine_from_text("test2_d1arg0_d2arg0", dtext2)
     compare_routines(ref_dR, dR)
 
 

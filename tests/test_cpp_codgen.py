@@ -32,7 +32,7 @@ double test1(double x){
     s = printer.doprint(func)
     if debug:
         print(s)
-    compare_src(ref_text1, s)
+    compare_src(ref_text1.strip(), s)
 
 
 def test_cpp_codegen_02(debug=False):
@@ -51,6 +51,7 @@ double test1(double x, double& e1){
     """
 
     R = routine_from_text("test1", text1)
+    R.print()
 
     func = convert_routine_to_function(R, is_cpp=True)
 
@@ -58,7 +59,7 @@ double test1(double x, double& e1){
     s = printer.doprint(func)
     if debug:
         print(s)
-    compare_src(ref_text1, s)
+    compare_src(ref_text1.strip(), s)
 
 
 if __name__ == "__main__":
