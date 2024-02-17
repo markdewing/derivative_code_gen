@@ -53,9 +53,9 @@ def derivative_routine_name(name, var_list, inputs):
 # For the called function
 def derivative_routine_name2(name, args_with_deriv):
     func_name_deriv = name + "".join(
-        "_d" + str(var_order) + "arg" + str(idx)
-        for idx, (var_name, var_order) in args_with_deriv
+        "_d" + str(var_order) + "arg" + str(idx) for idx, var_order in args_with_deriv
     )
+
     return func_name_deriv
 
 
@@ -127,20 +127,36 @@ class Routine:
     def diff_function_call(self, idx, s, var_list):
         dR_stmts = []
         func_args = s.rhs.args
+        # List of arguments (indices) and the variables
         args_with_deriv = list()
+        # List of arguments (indices) and orders with duplicates removed
+        args_with_deriv_dict = dict()
         # Find which args have dependencies on which variables
         for arg_idx, arg in enumerate(func_args):
             for var in var_list:
                 # print(f'Checking if {var} is in {self.func_dep_map[(idx,arg_idx)]}')
                 if var[0] in self.func_dep_map[(idx, arg_idx)]:
+                    args_with_deriv_dict[(arg_idx, var[1])] = var
                     args_with_deriv.append((arg_idx, var))
 
-        func_name_deriv = derivative_routine_name2(str(type(s.rhs)), args_with_deriv)
+        # Need list of argument indices and orders
+        args_with_deriv_list = sorted(args_with_deriv_dict.keys())
+        args_and_order = [
+            (arg_idx, args_with_deriv_dict[(arg_idx, arg_order)][1])
+            for arg_idx, arg_order in args_with_deriv_list
+        ]
+
+        if self.debug:
+            print("args_with_deriv", args_with_deriv)
+            print("args_and_order", args_and_order)
+
+        func_name_deriv = derivative_routine_name2(str(type(s.rhs)), args_and_order)
 
         assign_list = s.lhs[:]
 
         tmp_arg_name_list = list()
-        for arg_idx, (var_name, var_order) in args_with_deriv:
+        # for arg_idx, (var_name, var_order) in args_with_deriv:
+        for arg_idx, var_order in args_and_order:
             for lhs_var in s.lhs:
                 name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, var_order)
                 assign_list.append(Symbol(name_var_wrt_var))
@@ -157,6 +173,7 @@ class Routine:
         #    args_with_deriv, tmp_arg_name_list
         # ):
         for arg_idx, (var, order) in args_with_deriv:
+            # for arg_idx, order in args_and_order:
             for lhs_var in s.lhs:
                 name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
                 tmp_name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, order)

@@ -210,6 +210,33 @@ def test_step_05_routine_08(debug=False):
     compare_routines(ref_dR, dR)
 
 
+def test_step_05_routine_09(debug=False):
+    text1 = """
+      e0 = x - y
+      e1 = f(e0)
+    """
+
+    dtext1 = """
+      e0 = x - y
+      e0_d1x = 1
+      e0_d1y = -1
+      e1, tmp_e1_d1arg0 = f_d1arg0(e0)
+      e1_d1x = e0_d1x*tmp_e1_d1arg0
+      e1_d1y = e0_d1y*tmp_e1_d1arg0
+    """
+
+    R = routine_from_text("test1", text1)
+    R.debug = debug
+
+    x, y = symbols("x y")
+    dR = R.diff([x, y])
+    if debug:
+        dR.print()
+
+    ref_dR = routine_from_text("test1_d1arg0_d1arg1", dtext1)
+    compare_routines(ref_dR, dR)
+
+
 if __name__ == "__main__":
     # test_step_05_dependency_01(debug=True)
     # test_step_05_routine_01(debug=True)
@@ -218,4 +245,5 @@ if __name__ == "__main__":
     # skip_test_step_05_routine_05(debug=True)
     # test_step_05_routine_06(debug=True)
     # test_step_05_routine_07(debug=True)
-    test_step_05_routine_08(debug=True)
+    # test_step_05_routine_08(debug=True)
+    test_step_05_routine_09(debug=True)
