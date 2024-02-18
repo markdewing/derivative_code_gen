@@ -124,7 +124,7 @@ class Routine:
         print("")
 
     # Takes derivative of a function call
-    def diff_function_call(self, idx, s, var_list):
+    def diff_function_call(self, idx, s, var_list, deriv_is_nonzero):
         dR_stmts = []
         func_args = s.rhs.args
         # List of arguments (indices) and the variables
@@ -159,6 +159,7 @@ class Routine:
             for lhs_var in s.lhs:
                 name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, var_order)
                 assign_list.append(Symbol(name_var_wrt_var))
+                deriv_is_nonzero.add(name_var_wrt_var)
                 # tmp_arg_name_list.append(name_var_wrt_var)
 
         func_call = Function(func_name_deriv)(*s.rhs.args)
@@ -217,13 +218,15 @@ class Routine:
                                 name_var_wrt_var2 = variable_deriv_name(
                                     str(lhs_var2), var, order
                                 )
-                                de2 = diff(arg, lhs_var2, order)
-                                expr += (
-                                    de2
-                                    * Symbol(name_var_wrt_var2)
-                                    * Symbol(tmp_name_var_wrt_var)
-                                )
+                                if name_var_wrt_var2 in deriv_is_nonzero:
+                                    de2 = diff(arg, lhs_var2, order)
+                                    expr += (
+                                        de2
+                                        * Symbol(name_var_wrt_var2)
+                                        * Symbol(tmp_name_var_wrt_var)
+                                    )
 
+                deriv_is_nonzero.add(name_var_wrt_var)
                 dR_stmts.append(Statement(Symbol(name_var_wrt_var), expr))
 
         return dR_stmts
@@ -248,6 +251,9 @@ class Routine:
         dR.inputs = self.inputs[:]
         dR.outputs = self.outputs[:]
 
+        # Keep track of which statments have nonzero derivatives
+        deriv_is_nonzero = set()
+
         # Main loop over statements
         for idx, s in enumerate(self.stmts):
 
@@ -257,7 +263,9 @@ class Routine:
                 if self.debug:
                     print("Processing function line", str(s))
 
-                func_deriv_stmts = self.diff_function_call(idx, s, var_list)
+                func_deriv_stmts = self.diff_function_call(
+                    idx, s, var_list, deriv_is_nonzero
+                )
                 dR.stmts.extend(func_deriv_stmts)
 
                 # No further processing of this statement
@@ -292,18 +300,22 @@ class Routine:
                                 str(lhs_var2), var, order
                             )
 
-                            de2 = diff(s.rhs, lhs_var2, order) * Symbol(
-                                name_var_wrt_var
-                            )
-                            de += de2
+                            if name_var_wrt_var in deriv_is_nonzero:
+                                de2 = diff(s.rhs, lhs_var2, order) * Symbol(
+                                    name_var_wrt_var
+                                )
+                                de += de2
 
                 de = simplify(de)
-                lhs_deriv_name = variable_deriv_name(str(s.lhs[0]), var, order)
+                if de != 0:
+                    lhs_deriv_name = variable_deriv_name(str(s.lhs[0]), var, order)
 
-                dstmt = Statement(Symbol(lhs_deriv_name), de)
-                if self.debug:
-                    print(idx, "    derivative: ", dstmt)
-                dR.stmts.append(dstmt)
+                    deriv_is_nonzero.add(lhs_deriv_name)
+
+                    dstmt = Statement(Symbol(lhs_deriv_name), de)
+                    if self.debug:
+                        print(idx, "    derivative: ", dstmt)
+                    dR.stmts.append(dstmt)
 
         # Determine derivatives of output variables
         deriv_outputs = []
