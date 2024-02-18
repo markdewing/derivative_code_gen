@@ -1,4 +1,4 @@
-from sympy import diff, simplify, Symbol
+from sympy import diff, simplify, Symbol, Function, Derivative
 
 # Use a class for statements
 #  Each has a left-hand side and a right-hand side
@@ -72,6 +72,34 @@ class Routine:
         dR.inputs = self.inputs[:]
         dR.outputs = self.outputs[:]
 
+        local_vars = set()
+        for s in self.stmts:
+            local_vars.add(s.lhs)
+
+        # Collect all the independent variables
+        ind_vars = set()
+        for var_sym, order in var_list:
+            ind_vars.add(var_sym)
+
+        # To track dependencies, convert local variables to functions, take the deriviatives,
+        # and then convert back.  These are mappings (subs lists) that are needed.
+
+        local_vars_to_funcs = dict()
+        funcs_to_local_vars = dict()
+        dfuncs_to_local_vars = dict()
+
+        for local_var in local_vars:
+            func = Function(local_var)(*ind_vars)
+            local_vars_to_funcs[local_var] = func
+            funcs_to_local_vars[func] = local_var
+            for var_sym, order in var_list:
+                dfunc = Derivative(func, (var_sym, order))
+                dvar_name = variable_deriv_name(str(local_var), var_sym, order)
+                dfuncs_to_local_vars[dfunc] = Symbol(dvar_name)
+
+        if self.debug:
+            print("Local vars to functions: ", local_vars_to_funcs)
+
         # Main loop over statements
         for idx, s in enumerate(self.stmts):
             # Need the original statement
@@ -91,16 +119,15 @@ class Routine:
                         s.rhs.free_symbols,
                     )
 
-                # Compute derivative of the statement wrt the variable
-                de = diff(s.rhs, var, order)
+                # Convert local variables to functions
+                as_func = s.rhs.subs(local_vars_to_funcs)
 
-                # Derivatives wrt other statements (chain rule)
-                for idx2, s2 in enumerate(self.stmts):
-                    if s2.lhs in s.rhs.free_symbols:
-                        # Example: y -> y_d1x
-                        name_var_wrt_var = variable_deriv_name(str(s2.lhs), var, order)
-                        de2 = diff(s.rhs, s2.lhs, order) * Symbol(name_var_wrt_var)
-                        de += de2
+                # Compute derivative of the statement wrt the variable
+                # de = diff(s.rhs, var, order)
+                de_func = diff(as_func, var, order)
+
+                # Convert functions back to local variables
+                de = de_func.subs(dfuncs_to_local_vars).subs(funcs_to_local_vars)
 
                 de = simplify(de)
                 lhs_deriv_name = variable_deriv_name(str(s.lhs), var, order)
