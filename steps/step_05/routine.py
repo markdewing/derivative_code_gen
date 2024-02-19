@@ -1,5 +1,7 @@
-from sympy import diff, simplify, Symbol, Function
+from sympy import diff, simplify, Symbol, Function, Derivative, Subs
+import sympy.strategies
 from sympy.core.function import UndefinedFunction
+from collections import OrderedDict
 
 # Use a class for statements
 #  Each has a left-hand side and a right-hand side
@@ -22,6 +24,25 @@ class Statement:
         return str(self.lhs) + " = " + str(self.rhs)
 
 
+# Collect Derivative and Subs expressions.
+# This assumes that Subs immediately preceeds a Derivative expression
+def collect_Derivative_Subs(expr):
+    derivs = set()
+    subs = set()
+
+    def find_deriv(e):
+        if isinstance(e, Subs):
+            subs.add(e)
+            return None
+        if isinstance(e, Derivative):
+            print("e", type(e), e)
+            derivs.add(e)
+        return e
+
+    sympy.strategies.traverse.top_down(find_deriv)(expr)
+    return derivs, subs
+
+
 def normalize_variable_list(var_list):
     # Allow a single symbol or list of symbols
     if not isinstance(var_list, list):
@@ -35,7 +56,6 @@ def normalize_variable_list(var_list):
             new_var_list.append(v)
         else:
             new_var_list.append((v, 1))
-
     return new_var_list
 
 
@@ -67,6 +87,14 @@ def tmp_variable_name(var_name, arg_idx, order):
     return f"tmp_{str(var_name)}_d{str(order)}arg{str(arg_idx)}"
 
 
+# Get the argument index for a variable in list of function arguments
+def get_argument_index(func_args, var):
+    for arg_idx, arg_name in enumerate(func_args):
+        if arg_name == var:
+            return arg_idx
+    return -1
+
+
 class Routine:
     def __init__(self, name):
         self.name = name
@@ -79,164 +107,8 @@ class Routine:
 
         self.debug = False
 
-    # Does the expr depend on var at statement idx
-    def build_dependencies(self, stmts):
-        # depends = [set()]*len(stmts)
-        depends = list()
-        func_dep_map = dict()
-        for i in range(len(stmts)):
-            depends.append(set())
-
-        for idx, stmt in enumerate(stmts):
-            # print('for stmt idx',idx,'free syms',stmt.rhs.free_symbols)
-            if type(type(stmt.rhs)) is UndefinedFunction:
-                func_args = stmt.rhs.args
-                for arg_idx, arg in enumerate(func_args):
-                    # print('func arg',arg_idx,arg,arg.free_symbols)
-                    func_dep_map[(idx, arg_idx)] = set(arg.free_symbols)
-                    for idx2, stmt2 in enumerate(stmts[:idx]):
-                        for lhs2 in stmt2.lhs:
-                            # print('   checking lhs2',lhs2,' free syms',arg.free_symbols)
-                            if lhs2 in arg.free_symbols:
-                                # print('   adding ',idx,depends[idx2], ' to ',func_dep_map[(idx,arg_idx)])
-                                func_dep_map[(idx, arg_idx)].update(depends[idx2])
-
-            depends[idx].update(stmt.rhs.free_symbols)
-            for idx2, stmt2 in enumerate(stmts[:idx]):
-                # print('  previous index ',idx2)
-                for lhs2 in stmt2.lhs:
-                    # print('   checking lhs2',lhs2,' free syms',stmt.rhs.free_symbols)
-                    if lhs2 in stmt.rhs.free_symbols:
-                        # print('   adding ',idx,depends[idx2], ' to ',depends[idx])
-                        depends[idx].update(depends[idx2])
-
-        return depends, func_dep_map
-
-    def print_dependencies(self, stmts, depends, func_dep_map):
-        print("Dependency list")
-        for idx in range(len(depends)):
-            print("stmt ", idx, stmts[idx], " depends on ", depends[idx])
-        print("")
-        print("Function Dependency list")
-        for k, v in func_dep_map.items():
-            name = str(stmts[k[0]].rhs)
-            print("  ", name, "(stmt idx, arg idx)", k, " depends on", v)
-        print("")
-
-    # Takes derivative of a function call
-    def diff_function_call(self, idx, s, var_list, deriv_is_nonzero):
-        dR_stmts = []
-        func_args = s.rhs.args
-        # List of arguments (indices) and the variables
-        args_with_deriv = list()
-        # List of arguments (indices) and orders with duplicates removed
-        args_with_deriv_dict = dict()
-        # Find which args have dependencies on which variables
-        for arg_idx, arg in enumerate(func_args):
-            for var in var_list:
-                # print(f'Checking if {var} is in {self.func_dep_map[(idx,arg_idx)]}')
-                if var[0] in self.func_dep_map[(idx, arg_idx)]:
-                    args_with_deriv_dict[(arg_idx, var[1])] = var
-                    args_with_deriv.append((arg_idx, var))
-
-        # Need list of argument indices and orders
-        args_with_deriv_list = sorted(args_with_deriv_dict.keys())
-        args_and_order = [
-            (arg_idx, args_with_deriv_dict[(arg_idx, arg_order)][1])
-            for arg_idx, arg_order in args_with_deriv_list
-        ]
-
-        if self.debug:
-            print("args_with_deriv", args_with_deriv)
-            print("args_and_order", args_and_order)
-
-        func_name_deriv = derivative_routine_name2(str(type(s.rhs)), args_and_order)
-
-        assign_list = s.lhs[:]
-
-        tmp_arg_name_list = list()
-        for arg_idx, var_order in args_and_order:
-            for lhs_var in s.lhs:
-                name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, var_order)
-                assign_list.append(Symbol(name_var_wrt_var))
-                deriv_is_nonzero.add(name_var_wrt_var)
-                # tmp_arg_name_list.append(name_var_wrt_var)
-
-        func_call = Function(func_name_deriv)(*s.rhs.args)
-        stmt = Statement(tuple(assign_list), func_call)
-        if self.debug:
-            print(" new function call: ", str(stmt))
-        dR_stmts.append(stmt)
-
-        # Now apply the chain rule to the arguments
-        # for (arg_idx, (var, order)), tmp_name_var_wrt_var in zip(
-        #    args_with_deriv, tmp_arg_name_list
-        # ):
-        for arg_idx, (var, order) in args_with_deriv:
-            for lhs_var in s.lhs:
-                name_var_wrt_var = variable_deriv_name(str(lhs_var), var, order)
-                tmp_name_var_wrt_var = tmp_variable_name(lhs_var, arg_idx, order)
-
-                expr = 0
-                # Loop over function arguments
-                for arg in s.rhs.args:
-                    if order == 1:
-                        darg = diff(arg, var, 1)
-                        if self.debug:
-                            print(
-                                "  Differentiating ",
-                                arg,
-                                " by ",
-                                var,
-                                order,
-                                " is ",
-                                darg,
-                            )
-                        expr += darg * Symbol(tmp_name_var_wrt_var)
-
-                    if order == 2:
-                        tmp_name_var_wrt_var1 = tmp_variable_name(lhs_var, arg_idx, 1)
-                        darg1 = diff(arg, var, 1)
-                        darg2 = diff(arg, var, 2)
-                        if self.debug:
-                            print(
-                                "  Differentiating ",
-                                arg,
-                                " by ",
-                                var,
-                                order,
-                                " is ",
-                                darg2,
-                            )
-                        expr += darg1 ** 2 * Symbol(
-                            tmp_name_var_wrt_var
-                        ) + darg2 * Symbol(tmp_name_var_wrt_var1)
-
-                    for idx2, s2 in enumerate(self.stmts):
-                        for lhs_var2 in s2.lhs:
-                            if lhs_var2 in arg.free_symbols:
-                                name_var_wrt_var2 = variable_deriv_name(
-                                    str(lhs_var2), var, order
-                                )
-                                if name_var_wrt_var2 in deriv_is_nonzero:
-                                    de2 = diff(arg, lhs_var2, order)
-                                    expr += (
-                                        de2
-                                        * Symbol(name_var_wrt_var2)
-                                        * Symbol(tmp_name_var_wrt_var)
-                                    )
-
-                deriv_is_nonzero.add(name_var_wrt_var)
-                dR_stmts.append(Statement(Symbol(name_var_wrt_var), expr))
-
-        return dR_stmts
-
     # Compute derivative of function with respect to variables in var_list
     def diff(self, var_list):
-
-        # Allow a single symbol or list of symbols
-        if not isinstance(var_list, list):
-            var_list = [var_list]
 
         # Normalize var_list input to be a list of tuples of (Symbol, order)
         var_list = normalize_variable_list(var_list)
@@ -245,28 +117,130 @@ class Routine:
         deriv_routine_name = derivative_routine_name(self.name, var_list, self.inputs)
         dR = Routine(deriv_routine_name)
 
-        self.depends, self.func_dep_map = self.build_dependencies(self.stmts)
         # As a starting point, the inputs and outputs are the same as the original function.
         # Assume the new function returns the function value and derivatives.
         dR.inputs = self.inputs[:]
         dR.outputs = self.outputs[:]
 
+        # Collect all the local variables
+        local_vars = set()
+        for s in self.stmts:
+            for lhs in s.lhs:
+                local_vars.add(lhs)
+
+        # Collect all the independent variables
+        ind_vars = set()
+        for var_sym, order in var_list:
+            ind_vars.add(var_sym)
+
+        # To track dependencies, convert local variables to functions, take the deriviatives,
+        # and then convert back.  These are mappings (subs lists) that are needed.
+
+        local_vars_to_funcs = dict()
+        funcs_to_local_vars = dict()
+        dfuncs_to_local_vars = dict()
+
+        for local_var in local_vars:
+            func = Function(local_var)(*ind_vars)
+            local_vars_to_funcs[local_var] = func
+            funcs_to_local_vars[func] = local_var
+            for var_sym, order in var_list:
+                dfunc = Derivative(func, (var_sym, order))
+                dvar_name = variable_deriv_name(str(local_var), var_sym, order)
+                dfuncs_to_local_vars[dfunc] = Symbol(dvar_name)
+
+        if self.debug:
+            print("Local vars to functions: ", local_vars_to_funcs)
+
         # Keep track of which statments have nonzero derivatives
         deriv_is_nonzero = set()
 
         # Main loop over statements
-        for idx, s in enumerate(self.stmts):
+        for stmt_idx, s in enumerate(self.stmts):
 
             # Check for function calls
-            # Assume that all function calls only the function call in the rhs (e0 = g(x))
+            # Assume that for all function calls that only the function call in the rhs (e0 = g(x))
             if type(type(s.rhs)) is UndefinedFunction:
                 if self.debug:
                     print("Processing function line", str(s))
 
-                func_deriv_stmts = self.diff_function_call(
-                    idx, s, var_list, deriv_is_nonzero
+                # For unknown functions
+                dfunc_subs = dict()
+                non_zero_dfunc_list = list()
+                non_zero_dfunc = dict()
+
+                for (var, order) in var_list:
+                    # Convert local variables to functions
+                    as_func = s.rhs.subs(local_vars_to_funcs)
+
+                    de_func = diff(as_func, var, order)
+
+                    # dfunc = Derivative(s.rhs, (var, order), evaluate=False)
+
+                    # Convert functions back to local variables
+                    de = de_func.subs(dfuncs_to_local_vars).subs(funcs_to_local_vars)
+
+                    de = simplify(de)
+                    if de != 0:
+                        non_zero_dfunc_list.append((var, order))
+                        non_zero_dfunc[(var, order)] = de
+                        # de_derivs,de_subs = collect_Derivative_Subs(de)
+                        # print('de = ',de)
+
+                if self.debug:
+                    print("nonzero dfunc", non_zero_dfunc)
+
+                args_with_derivs = OrderedDict()
+
+                assign_dict = OrderedDict()
+                for lhs_val in s.lhs:
+                    assign_dict[lhs_val] = 0
+
+                supporting_dstmts = []
+                for var, order in non_zero_dfunc_list:
+                    tmp_var3 = variable_deriv_name(str(s.lhs[0]), var, order)
+
+                    # Create substitutions to convert function Derivatives back
+                    #  to modified function name calls.
+                    de_derivs, de_subs = collect_Derivative_Subs(
+                        non_zero_dfunc[(var, order)]
+                    )
+                    for deriv in de_derivs:
+                        func_args = deriv.args[0].args
+                        (var2, order2) = deriv.args[1]
+                        arg_idx = get_argument_index(func_args, var2)
+                        tmp_var = tmp_variable_name(str(s.lhs[0]), arg_idx, order2)
+                        args_with_derivs[(arg_idx, order2)] = 0
+                        dfunc_subs[deriv] = tmp_var
+                        assign_dict[Symbol(tmp_var)] = 0
+
+                    for desub in de_subs:
+                        deriv = desub.args[0]
+                        func_args = deriv.args[0].args
+                        (var2, order2) = deriv.args[1]
+                        arg_idx = get_argument_index(func_args, var2)
+                        tmp_var = tmp_variable_name(str(s.lhs[0]), arg_idx, order2)
+                        args_with_derivs[(arg_idx, order2)] = 0
+                        dfunc_subs[desub] = tmp_var
+                        assign_dict[Symbol(tmp_var)] = 0
+
+                    stmt = Statement(
+                        Symbol(tmp_var3), non_zero_dfunc[(var, order)].subs(dfunc_subs)
+                    )
+                    supporting_dstmts.append(stmt)
+                    deriv_is_nonzero.add(tmp_var3)
+
+                dfunc_name = derivative_routine_name2(
+                    str(type(s.rhs)), args_with_derivs.keys()
                 )
-                dR.stmts.extend(func_deriv_stmts)
+                dfunc_call = Function(dfunc_name)(*s.rhs.args)
+
+                assign_list = assign_dict.keys()
+
+                stmt = Statement(tuple(assign_list), dfunc_call)
+                dR.stmts.append(stmt)
+
+                dR.stmts.extend(supporting_dstmts)
 
                 # No further processing of this statement
                 continue
@@ -277,7 +251,7 @@ class Routine:
             for (var, order) in var_list:
                 if self.debug:
                     print(
-                        idx,
+                        stmt_idx,
                         "processing stmt ",
                         str(s.lhs),
                         "=",
@@ -288,23 +262,23 @@ class Routine:
                         s.rhs.free_symbols,
                     )
 
+                # Convert local variables to functions
+                as_func = s.rhs.subs(local_vars_to_funcs)
+
                 # Compute derivative of the statement wrt the variable
-                de = diff(s.rhs, var, order)
+                # de = diff(s.rhs, var, order)
+                de_func = diff(as_func, var, order)
 
-                # Derivatives wrt other statements (chain rule)
-                for idx2, s2 in enumerate(self.stmts):
-                    for lhs_var2 in s2.lhs:
-                        if lhs_var2 in s.rhs.free_symbols:
-                            # Example: y -> y_d1x
-                            name_var_wrt_var = variable_deriv_name(
-                                str(lhs_var2), var, order
-                            )
+                # Convert functions back to local variables
+                de = de_func.subs(dfuncs_to_local_vars).subs(funcs_to_local_vars)
 
-                            if name_var_wrt_var in deriv_is_nonzero:
-                                de2 = diff(s.rhs, lhs_var2, order) * Symbol(
-                                    name_var_wrt_var
-                                )
-                                de += de2
+                # Remove derivatives known to be zero
+                deriv_is_zero = dict()
+                for val in dfuncs_to_local_vars.values():
+                    if str(val) not in deriv_is_nonzero:
+                        deriv_is_zero[val] = 0
+
+                de = de.subs(deriv_is_zero)
 
                 de = simplify(de)
                 if de != 0:
@@ -314,7 +288,7 @@ class Routine:
 
                     dstmt = Statement(Symbol(lhs_deriv_name), de)
                     if self.debug:
-                        print(idx, "    derivative: ", dstmt)
+                        print(stmt_idx, "    derivative: ", dstmt)
                     dR.stmts.append(dstmt)
 
         # Determine derivatives of output variables
