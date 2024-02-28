@@ -44,7 +44,6 @@ def collect_Derivative_Subs(expr):
             subs.add(e)
             return None
         if isinstance(e, Derivative):
-            print("e", type(e), e)
             derivs.add(e)
         return e
 
@@ -251,9 +250,15 @@ class Routine:
                         dfunc_subs[deriv_or_subs] = tmp_var
                         assign_dict[Symbol(tmp_var)] = 0
 
-                    stmt = Statement(
-                        Symbol(tmp_var3), non_zero_dfunc[(var, order)].subs(dfunc_subs)
-                    )
+                    de = non_zero_dfunc[(var, order)].subs(dfunc_subs)
+                    # Remove derivatives known to be zero
+                    deriv_is_zero = dict()
+                    for val in dfuncs_to_local_vars.values():
+                        if str(val) not in deriv_is_nonzero:
+                            deriv_is_zero[val] = 0
+
+                    de = de.subs(deriv_is_zero)
+                    stmt = Statement(Symbol(tmp_var3), de)
                     supporting_dstmts.append(stmt)
                     deriv_is_nonzero.add(tmp_var3)
 
@@ -322,7 +327,7 @@ class Routine:
 
                     deriv_is_nonzero.add(lhs_deriv_name)
 
-                    dstmt = Statement(Symbol(lhs_deriv_name), de)
+                    dstmt = Statement(new_lhs, de)
                     if self.debug:
                         print(stmt_idx, "    derivative: ", dstmt)
                     dR.stmts.append(dstmt)
