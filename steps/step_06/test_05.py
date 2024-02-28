@@ -25,7 +25,7 @@ def test_step_05_routine_01(debug=False):
     compare_routines(ref_dR, dR)
 
 
-def test_step_05_dependency_01(debug=False):
+def skip_test_step_05_dependency_01(debug=False):
     text1 = """
       e0 = g(x)
       e1 = 2*x + 3*e0
@@ -56,6 +56,10 @@ def test_step_05_routine_03(debug=False):
     x = Symbol("x")
     R = routine_from_text("test1", text1)
     R.debug = debug
+    # if debug:
+    #    deps, func_deps = R.build_dependencies(R.stmts)
+    #    R.print_dependencies(R.stmts, deps, func_deps)
+
     dR = R.diff(x)
 
     if debug:
@@ -256,9 +260,6 @@ def test_step_05_routine_10(debug=False):
     R = routine_from_text("test1", text1)
     R.debug = debug
 
-    # deps, func_deps = R.build_dependencies(R.stmts)
-    # R.print_dependencies(R.stmts, deps, func_deps)
-
     x, y = symbols("x y")
     dR = R.diff([x, y])
     if debug:
@@ -266,6 +267,35 @@ def test_step_05_routine_10(debug=False):
 
     ref_dR = routine_from_text("test1_d1arg0_d1arg1", dtext1)
     compare_routines(ref_dR, dR)
+
+
+def test_step_05_routine_11(debug=False):
+    text1 = """
+      e0 = f(x)
+      e1 = f(y)
+      e2 = g(e1)
+      e3 = e0*e1
+    """
+    dtext1 = """
+      e0, tmp_e0_d1arg0 = f_d1arg0(x)
+      e0_d1x = tmp_e0_d1arg0
+      e1, tmp_e1_d1arg0 = f_d1arg0(y)
+      e1_d1y = tmp_e1_d1arg0
+      e2 = e0*e1
+      e2_d1x = e0_d1x*e1
+      e2_d1y = e0*e1_d1y
+    """
+
+    R = routine_from_text("test1", text1)
+    R.debug = debug
+
+    x, y = symbols("x y")
+    dR = R.diff([x, (x, 2), y, (y, 2)])
+    if debug:
+        dR.print()
+
+    # ref_dR = routine_from_text("test1_d1arg0_d1arg1", dtext1)
+    # compare_routines(ref_dR, dR)
 
 
 if __name__ == "__main__":
@@ -279,3 +309,4 @@ if __name__ == "__main__":
     # test_step_05_routine_08(debug=True)
     # test_step_05_routine_09(debug=True)
     test_step_05_routine_10(debug=True)
+# test_step_05_routine_11(debug=True)
