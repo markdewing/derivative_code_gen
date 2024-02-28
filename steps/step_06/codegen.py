@@ -43,7 +43,7 @@ def convert_routine_to_function(R, is_cpp=False):
     #  Skip the output variables (except the first one) since those are declared
     #   in the parameter list
     if is_cpp:
-        print('outputs',R.outputs,[type(o) for o in R.outputs])
+        print("outputs", R.outputs, [type(o) for o in R.outputs])
         for stmt in R.stmts:
             for lhs_var in stmt.lhs:
                 if lhs_var not in R.outputs[1:]:
@@ -52,7 +52,9 @@ def convert_routine_to_function(R, is_cpp=False):
                     elif isinstance(lhs_var, IndexedBase):
                         pass
                     else:
-                        body.append(Variable(str(lhs_var), type="double").as_Declaration())
+                        body.append(
+                            Variable(str(lhs_var), type="double").as_Declaration()
+                        )
 
     # Look for arrays that need to be defined
     # For memory efficiency, we may eventually want to pass these as parameters
@@ -60,7 +62,11 @@ def convert_routine_to_function(R, is_cpp=False):
     for stmt in R.stmts:
         for lhs_var in stmt.lhs:
             if is_cpp:
-                if isinstance(lhs_var, Indexed) and lhs_var.base not in R.inputs and lhs_var.base not in R.outputs[1:]:
+                if (
+                    isinstance(lhs_var, Indexed)
+                    and lhs_var.base not in R.inputs
+                    and lhs_var.base not in R.outputs[1:]
+                ):
                     array_decls[lhs_var.base] = 3
             else:
                 if isinstance(lhs_var, Indexed) and lhs_var.base not in R.inputs:
