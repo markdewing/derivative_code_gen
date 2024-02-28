@@ -192,7 +192,7 @@ class Routine:
 
                 args_with_derivs = OrderedDict()
 
-                assign_dict = OrderedDict()
+                assign_dict = OrderedDict()  # Use the ordered dict as an OrderedSet
                 for lhs_val in s.lhs:
                     assign_dict[lhs_val] = 0
 
@@ -200,28 +200,27 @@ class Routine:
                 for var, order in non_zero_dfunc_list:
                     tmp_var3 = variable_deriv_name(str(s.lhs[0]), var, order)
 
-                    # Create substitutions to convert function Derivatives back
-                    #  to modified function name calls.
+                    # Derivative of UndefinedFunction produces a Derivative if
+                    # the argument is a variable.  It produces a Subs(Derivative..
+                    # if the argument is an expression involving the variable.
+
                     de_derivs, de_subs = collect_Derivative_Subs(
                         non_zero_dfunc[(var, order)]
                     )
-                    for deriv in de_derivs:
-                        func_args = deriv.args[0].args
-                        (var2, order2) = deriv.args[1]
-                        arg_idx = get_argument_index(func_args, var2)
-                        tmp_var = tmp_variable_name(str(s.lhs[0]), arg_idx, order2)
-                        args_with_derivs[(arg_idx, order2)] = 0
-                        dfunc_subs[deriv] = tmp_var
-                        assign_dict[Symbol(tmp_var)] = 0
 
-                    for desub in de_subs:
-                        deriv = desub.args[0]
+                    # Create substitutions to convert function Derivatives back
+                    # to modified function name calls.
+                    for deriv_or_subs in list(de_derivs) + list(de_subs):
+                        if isinstance(deriv_or_subs, Subs):
+                            deriv = deriv_or_subs.args[0]
+                        else:
+                            deriv = deriv_or_subs
                         func_args = deriv.args[0].args
                         (var2, order2) = deriv.args[1]
                         arg_idx = get_argument_index(func_args, var2)
                         tmp_var = tmp_variable_name(str(s.lhs[0]), arg_idx, order2)
                         args_with_derivs[(arg_idx, order2)] = 0
-                        dfunc_subs[desub] = tmp_var
+                        dfunc_subs[deriv_or_subs] = tmp_var
                         assign_dict[Symbol(tmp_var)] = 0
 
                     stmt = Statement(
